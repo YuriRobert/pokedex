@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
+import AutocompleteInput from '../pokemon/AutocompleteInput'
 
 const NAV_LINKS = [
   { to: '/',          label: 'Início',      icon: '🏠' },
@@ -14,17 +15,12 @@ const NAV_LINKS = [
 
 export default function Header({ isDark, onToggleTheme, favoritesCount = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate(`/pokedex?search=${encodeURIComponent(searchQuery.trim())}`)
-      setSearchQuery('')
-      setMenuOpen(false)
-    }
+  function handleSelect(pokemon) {
+    navigate(`/pokemon/${pokemon.id}`)
+    setMenuOpen(false)
   }
 
   return (
@@ -71,18 +67,12 @@ export default function Header({ isDark, onToggleTheme, favoritesCount = 0 }) {
 
           {/* Busca + Theme + Menu */}
           <div className="flex items-center gap-2">
-            <form onSubmit={handleSearch} className="hidden sm:flex">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar Pokémon..."
-                  className="pl-9 pr-3 py-1.5 rounded-full text-sm bg-red-700 dark:bg-gray-800 text-white placeholder-red-300 dark:placeholder-gray-400 border border-red-500 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-white w-44 focus:w-56 transition-all"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-300">🔍</span>
-              </div>
-            </form>
+            <div className="hidden sm:block w-52">
+              <AutocompleteInput
+                onSelect={handleSelect}
+                placeholder="Buscar Pokémon..."
+              />
+            </div>
 
             <ThemeToggle isDark={isDark} onToggle={onToggleTheme} />
 
@@ -104,18 +94,9 @@ export default function Header({ isDark, onToggleTheme, favoritesCount = 0 }) {
         {/* Menu mobile dropdown */}
         {menuOpen && (
           <div className="lg:hidden pb-4 animate-slideUp">
-            <form onSubmit={handleSearch} className="mb-3">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar Pokémon..."
-                  className="w-full pl-9 pr-3 py-2 rounded-full text-sm bg-red-700 dark:bg-gray-800 text-white placeholder-red-300 border border-red-500 focus:outline-none focus:ring-2 focus:ring-white"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-300">🔍</span>
-              </div>
-            </form>
+            <div className="mb-3">
+              <AutocompleteInput onSelect={handleSelect} placeholder="Buscar Pokémon..." />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {NAV_LINKS.map(link => (
                 <Link
