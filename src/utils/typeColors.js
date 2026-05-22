@@ -1,0 +1,66 @@
+export const TYPE_COLORS = {
+  normal:   { bg: '#A8A878', light: '#C6C6A7', dark: '#6D6D4E', text: '#fff', gradient: 'from-gray-400 to-gray-500' },
+  fire:     { bg: '#F08030', light: '#F5AC78', dark: '#9C531F', text: '#fff', gradient: 'from-orange-400 to-red-500' },
+  water:    { bg: '#6890F0', light: '#9DB7F5', dark: '#445E9C', text: '#fff', gradient: 'from-blue-400 to-blue-600' },
+  electric: { bg: '#F8D030', light: '#FAE078', dark: '#A1871F', text: '#333', gradient: 'from-yellow-300 to-yellow-500' },
+  grass:    { bg: '#78C850', light: '#A7DB8D', dark: '#4E8234', text: '#fff', gradient: 'from-green-400 to-green-600' },
+  ice:      { bg: '#98D8D8', light: '#BCE6E6', dark: '#638D8D', text: '#333', gradient: 'from-cyan-300 to-cyan-500' },
+  fighting: { bg: '#C03028', light: '#D67873', dark: '#7D1F1A', text: '#fff', gradient: 'from-red-600 to-red-800' },
+  poison:   { bg: '#A040A0', light: '#C183C1', dark: '#682A68', text: '#fff', gradient: 'from-purple-500 to-purple-700' },
+  ground:   { bg: '#E0C068', light: '#EBD69D', dark: '#927D44', text: '#333', gradient: 'from-yellow-500 to-amber-600' },
+  flying:   { bg: '#A890F0', light: '#C6B7F5', dark: '#6D5E9C', text: '#fff', gradient: 'from-indigo-300 to-purple-400' },
+  psychic:  { bg: '#F85888', light: '#FA92B2', dark: '#A13959', text: '#fff', gradient: 'from-pink-400 to-rose-500' },
+  bug:      { bg: '#A8B820', light: '#C6D16E', dark: '#6D7815', text: '#fff', gradient: 'from-lime-400 to-green-500' },
+  rock:     { bg: '#B8A038', light: '#D1C17D', dark: '#786824', text: '#fff', gradient: 'from-yellow-600 to-amber-700' },
+  ghost:    { bg: '#705898', light: '#A292BC', dark: '#493963', text: '#fff', gradient: 'from-purple-600 to-indigo-700' },
+  dragon:   { bg: '#7038F8', light: '#A27DFA', dark: '#4924A1', text: '#fff', gradient: 'from-blue-600 to-violet-700' },
+  dark:     { bg: '#705848', light: '#A29288', dark: '#49392F', text: '#fff', gradient: 'from-gray-600 to-gray-800' },
+  steel:    { bg: '#B8B8D0', light: '#D1D1E0', dark: '#787887', text: '#333', gradient: 'from-slate-400 to-slate-600' },
+  fairy:    { bg: '#EE99AC', light: '#F4BDC9', dark: '#9B6470', text: '#fff', gradient: 'from-pink-300 to-pink-500' },
+}
+
+export const TYPE_ICONS = {
+  normal:   '⚪',
+  fire:     '🔥',
+  water:    '💧',
+  electric: '⚡',
+  grass:    '🌿',
+  ice:      '❄️',
+  fighting: '🥊',
+  poison:   '☠️',
+  ground:   '🌍',
+  flying:   '🌬️',
+  psychic:  '🔮',
+  bug:      '🐛',
+  rock:     '🪨',
+  ghost:    '👻',
+  dragon:   '🐉',
+  dark:     '🌑',
+  steel:    '⚙️',
+  fairy:    '✨',
+}
+
+export const TYPE_LABELS_PT = {
+  normal:   'Normal',
+  fire:     'Fogo',
+  water:    'Água',
+  electric: 'Elétrico',
+  grass:    'Planta',
+  ice:      'Gelo',
+  fighting: 'Lutador',
+  poison:   'Veneno',
+  ground:   'Terra',
+  flying:   'Voador',
+  psychic:  'Psíquico',
+  bug:      'Inseto',
+  rock:     'Pedra',
+  ghost:    'Fantasma',
+  dragon:   'Dragão',
+  dark:     'Sombrio',
+  steel:    'Aço',
+  fairy:    'Fada',
+}
+
+export const getTypeColor = (type) => TYPE_COLORS[type?.toLowerCase()] || TYPE_COLORS.normal
+export const getTypeIcon = (type) => TYPE_ICONS[type?.toLowerCase()] || '❓'
+export const getTypeLabel = (type) => TYPE_LABELS_PT[type?.toLowerCase()] || type
