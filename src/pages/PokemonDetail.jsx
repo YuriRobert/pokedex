@@ -61,7 +61,7 @@ function EvolutionBranch({ node, currentId }) {
                   <div className="w-px h-2 bg-gray-300 dark:bg-gray-600" />
                   <span className="text-gray-400 dark:text-gray-500 text-xs leading-none">▼</span>
                   {method && (
-                    <div className="mt-1 mb-1 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 text-xs text-indigo-700 dark:text-indigo-300 text-center max-w-[130px] leading-snug">
+                    <div className="mt-1 mb-1 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 text-xs text-indigo-700 dark:text-indigo-300 text-center max-w-[170px] leading-snug">
                       <span className="mr-0.5">{icon}</span>{method}
                     </div>
                   )}
@@ -198,8 +198,8 @@ export default function PokemonDetail() {
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="relative flex-shrink-0">
-              <div className="w-52 h-52 flex items-center justify-center animate-float">
+            <div className="flex flex-col items-center gap-3 flex-shrink-0">
+              <div className="w-64 h-64 flex items-center justify-center animate-float">
                 {!imgError ? (
                   <img
                     src={getPokemonImageUrl(pokemon.id, shiny)}
@@ -208,12 +208,12 @@ export default function PokemonDetail() {
                     onError={() => setImgError(true)}
                   />
                 ) : (
-                  <div className="w-40 h-40 bg-white/20 rounded-full flex items-center justify-center text-7xl">🔴</div>
+                  <div className="w-48 h-48 bg-white/20 rounded-full flex items-center justify-center text-7xl">🔴</div>
                 )}
               </div>
               <button
                 onClick={() => setShiny(!shiny)}
-                className={`absolute top-0 right-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
                   shiny ? 'bg-yellow-400 text-gray-900' : 'bg-white/20 text-white hover:bg-white/30'
                 }`}
               >

@@ -8,9 +8,11 @@ import TypeBadge from '../components/pokemon/TypeBadge'
 const FEATURED_IDS = [25, 6, 9, 3, 150, 249, 384, 483, 643, 716]
 
 const TYPE_GRID = [
-  'fire', 'water', 'grass', 'electric',
-  'psychic', 'dragon', 'ghost', 'fairy',
-  'fighting', 'ice', 'rock', 'dark',
+  'normal', 'fire', 'water', 'grass',
+  'electric', 'ice', 'fighting', 'poison',
+  'ground', 'flying', 'psychic', 'bug',
+  'rock', 'ghost', 'dragon', 'dark',
+  'steel', 'fairy',
 ]
 
 export default function Home() {
@@ -138,7 +140,7 @@ export default function Home() {
                         src={getPokemonImageUrl(poke.id)}
                         alt={poke.name}
                         className="w-full object-contain p-2 drop-shadow-lg"
-                        style={{ height: '90px' }}
+                        style={{ height: '120px' }}
                       />
                     </Link>
                   )
