@@ -32,8 +32,10 @@ export async function getPokemonSpecies(idOrName) {
 }
 
 export async function getEvolutionChain(url) {
+  if (typeof url !== 'string' || !url.startsWith('https://pokeapi.co/')) {
+    throw new Error('Invalid evolution chain URL')
+  }
   if (cache.has(url)) return cache.get(url)
-  // Evolution chain URLs are absolute, api.get() handles them fine
   const promise = api.get(url).then(res => res.data)
   cache.set(url, promise)
   return promise

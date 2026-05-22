@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getPokemonList, getPokemon } from '../services/pokeapi'
 import { useFavorites } from '../hooks/useFavorites'
@@ -6,8 +6,8 @@ import PokemonCard from '../components/pokemon/PokemonCard'
 import { TYPE_COLORS, TYPE_LABELS_PT } from '../utils/typeColors'
 import { REGIONS } from '../utils/regionData'
 
-const LIMIT = 24
 const TOTAL = 1025
+const DETAIL_BATCH = 40
 
 const SORT_OPTIONS = [
   { value: 'id-asc',    label: '# Menor → Maior' },
@@ -20,12 +20,10 @@ export default function Pokedex() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { isFavorite, toggleFavorite } = useFavorites()
 
-  const [allPokemon, setAllPokemon] = useState([])
-  const [displayPokemon, setDisplayPokemon] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [offset, setOffset] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
+  const [basicList, setBasicList] = useState([])
+  const [detailsMap, setDetailsMap] = useState({})
+  const [loadingList, setLoadingList] = useState(true)
+  const [loadedCount, setLoadedCount] = useState(0)
   const [error, setError] = useState(null)
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
@@ -34,65 +32,70 @@ export default function Pokedex() {
   const [sortBy, setSortBy] = useState('id-asc')
   const [showFilters, setShowFilters] = useState(false)
 
-  const loaderRef = useRef(null)
+  useEffect(() => {
+    let active = true
 
-  const loadPokemon = useCallback(async (newOffset = 0, append = false, signal = null) => {
-    if (newOffset === 0) setLoading(true)
-    else setLoadingMore(true)
+    async function init() {
+      try {
+        const data = await getPokemonList(TOTAL, 0)
+        if (!active) return
 
-    try {
-      const list = await getPokemonList(LIMIT, newOffset)
-      const details = await Promise.all(
-        list.results.map(p => getPokemon(p.name))
-      )
-      if (signal?.aborted) return
-      if (append) {
-        setAllPokemon(prev => [...prev, ...details])
-      } else {
-        setAllPokemon(details)
-      }
-      setHasMore(newOffset + LIMIT < TOTAL)
-    } catch (e) {
-      if (!signal?.aborted) setError('Erro ao carregar Pokémon. Verifique sua conexão.')
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false)
-        setLoadingMore(false)
+        const list = data.results.map(p => ({
+          name: p.name,
+          id: parseInt(p.url.split('/').filter(Boolean).pop(), 10),
+        }))
+        setBasicList(list)
+        setLoadingList(false)
+
+        for (let i = 0; i < list.length; i += DETAIL_BATCH) {
+          if (!active) break
+          const batch = list.slice(i, i + DETAIL_BATCH)
+          const results = await Promise.allSettled(batch.map(p => getPokemon(p.id)))
+          if (!active) break
+          setDetailsMap(prev => {
+            const next = { ...prev }
+            results.forEach((r, idx) => {
+              if (r.status === 'fulfilled') next[batch[idx].id] = r.value
+            })
+            return next
+          })
+          setLoadedCount(Math.min(i + DETAIL_BATCH, list.length))
+        }
+      } catch {
+        if (active) {
+          setError('Erro ao carregar lista de Pokémon. Verifique sua conexão.')
+          setLoadingList(false)
+        }
       }
     }
+
+    init()
+    return () => { active = false }
   }, [])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    loadPokemon(0, false, controller.signal)
-    return () => controller.abort()
-  }, [loadPokemon])
+  const allDetailsLoaded = basicList.length > 0 && loadedCount >= basicList.length
+  const detailsLoading = basicList.length > 0 && !allDetailsLoaded
 
-  // Filtros e ordenação
-  useEffect(() => {
-    let filtered = [...allPokemon]
+  const displayPokemon = useMemo(() => {
+    const all = basicList.map(basic => detailsMap[basic.id] || basic)
+    let filtered = all
 
     if (search.trim()) {
       const q = search.toLowerCase()
-      filtered = filtered.filter(p =>
-        p.name.includes(q) || String(p.id).includes(q)
-      )
+      filtered = filtered.filter(p => p.name.includes(q) || String(p.id).includes(q))
     }
 
     if (filterType) {
       filtered = filtered.filter(p =>
-        p.types.some(t => t.type.name === filterType)
+        p.types?.some(t => (t.type?.name ?? t) === filterType)
       )
     }
 
     if (filterRegion) {
       const region = REGIONS.find(r => r.id === filterRegion)
-      if (region) {
-        filtered = filtered.filter(p => p.id >= region.range[0] && p.id <= region.range[1])
-      }
+      if (region) filtered = filtered.filter(p => p.id >= region.range[0] && p.id <= region.range[1])
     }
 
-    // Ordenação
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'id-desc':   return b.id - a.id
@@ -102,24 +105,10 @@ export default function Pokedex() {
       }
     })
 
-    setDisplayPokemon(filtered)
-  }, [allPokemon, search, filterType, filterRegion, sortBy])
+    return filtered
+  }, [basicList, detailsMap, search, filterType, filterRegion, sortBy])
 
-  // Infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !search && !filterType && !filterRegion) {
-          const newOffset = offset + LIMIT
-          setOffset(newOffset)
-          loadPokemon(newOffset, true)
-        }
-      },
-      { threshold: 0.1 }
-    )
-    if (loaderRef.current) observer.observe(loaderRef.current)
-    return () => observer.disconnect()
-  }, [hasMore, loadingMore, offset, search, filterType, filterRegion, loadPokemon])
+  const hasActiveFilters = search || filterType || filterRegion || sortBy !== 'id-asc'
 
   const clearFilters = () => {
     setSearch('')
@@ -129,22 +118,32 @@ export default function Pokedex() {
     setSearchParams({})
   }
 
-  const hasActiveFilters = search || filterType || filterRegion || sortBy !== 'id-asc'
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-12">
-      {/* Header */}
       <div className="bg-red-600 dark:bg-gray-800 text-white py-10 px-4">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-extrabold mb-1">📖 Pokédex</h1>
           <p className="text-red-200 dark:text-gray-400">
             {TOTAL}+ Pokémon · Dados via PokéAPI
           </p>
+          {detailsLoading && (
+            <div className="mt-3 max-w-xs">
+              <div className="flex justify-between text-xs text-red-200 dark:text-gray-400 mb-1">
+                <span>Carregando tipos...</span>
+                <span>{loadedCount}/{TOTAL}</span>
+              </div>
+              <div className="h-1.5 bg-red-800 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-yellow-400 rounded-full transition-all duration-500"
+                  style={{ width: `${(loadedCount / TOTAL) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Barra de busca + toggle filtros */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
@@ -178,14 +177,12 @@ export default function Pokedex() {
           </select>
         </div>
 
-        {/* Painel de filtros */}
         {showFilters && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 animate-slideUp">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Tipo */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Tipo
+                  Tipo{detailsLoading && <span className="ml-1 text-xs font-normal text-gray-400">(carregando...)</span>}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(TYPE_COLORS).map(([type, colors]) => (
@@ -205,7 +202,6 @@ export default function Pokedex() {
                 </div>
               </div>
 
-              {/* Região */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Região / Geração
@@ -240,27 +236,28 @@ export default function Pokedex() {
           </div>
         )}
 
-        {/* Contador */}
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          {loading ? 'Carregando...' : `${displayPokemon.length} Pokémon encontrados`}
+          {loadingList ? 'Carregando...' : `${displayPokemon.length} Pokémon encontrados`}
           {hasActiveFilters && ' (filtros ativos)'}
+          {(filterType || filterRegion) && detailsLoading && (
+            <span className="ml-1 text-yellow-500">· resultado parcial — tipos ainda carregando</span>
+          )}
         </p>
 
-        {/* Grid */}
         {error ? (
           <div className="text-center py-20">
             <div className="text-4xl mb-3">😢</div>
             <p className="text-red-500 font-semibold">{error}</p>
             <button
-              onClick={() => { setError(null); loadPokemon(0) }}
+              onClick={() => window.location.reload()}
               className="mt-4 px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
             >
               Tentar novamente
             </button>
           </div>
-        ) : loading ? (
+        ) : loadingList ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {Array.from({ length: LIMIT }).map((_, i) => (
+            {Array.from({ length: 24 }).map((_, i) => (
               <div key={i} className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
             ))}
           </div>
@@ -287,21 +284,10 @@ export default function Pokedex() {
           </div>
         )}
 
-        {/* Loader infinito */}
-        {!search && !filterType && !filterRegion && (
-          <div ref={loaderRef} className="flex justify-center py-8 mt-4">
-            {loadingMore && (
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">Carregando mais Pokémon...</p>
-              </div>
-            )}
-            {!hasMore && allPokemon.length > 0 && (
-              <p className="text-gray-400 dark:text-gray-600 text-sm">
-                ✓ Todos os {allPokemon.length} Pokémon carregados!
-              </p>
-            )}
-          </div>
+        {allDetailsLoaded && !hasActiveFilters && (
+          <p className="text-center text-gray-400 dark:text-gray-600 text-sm mt-8">
+            ✓ Todos os {TOTAL} Pokémon carregados
+          </p>
         )}
       </div>
     </div>
