@@ -9,8 +9,74 @@ import { useFavorites } from '../hooks/useFavorites'
 import { getTypeColor, getTypeLabel } from '../utils/typeColors'
 import { getWeaknessesAndResistances } from '../utils/typeChart'
 import { getRegionByPokemonId } from '../utils/regionData'
+import { formatEvolutionMethod, getEvolutionMethodIcon } from '../utils/evolutionUtils'
+import { POKEMON_TIPS } from '../data/pokemonTips'
 import TypeBadge from '../components/pokemon/TypeBadge'
 import StatsBar from '../components/pokemon/StatsBar'
+
+// --- Evolution tree components ---
+
+function EvolutionCard({ id, name, currentId }) {
+  const numId = Number(id)
+  const isCurrent = numId === currentId
+  const displayName = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ')
+  return (
+    <Link
+      to={`/pokemon/${numId}`}
+      className={`flex flex-col items-center p-3 rounded-2xl transition-all hover:scale-105 w-[100px] flex-shrink-0 ${
+        isCurrent
+          ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-950'
+          : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+      }`}
+    >
+      <img
+        src={getPokemonImageUrl(numId)}
+        alt={displayName}
+        className="w-16 h-16 object-contain drop-shadow"
+        loading="lazy"
+      />
+      <p className="text-xs font-bold text-gray-800 dark:text-white mt-1 text-center leading-tight">
+        {displayName}
+      </p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+        {formatId(numId)}
+      </p>
+    </Link>
+  )
+}
+
+function EvolutionBranch({ node, currentId }) {
+  if (!node) return null
+  return (
+    <div className="flex flex-col items-center">
+      <EvolutionCard id={node.id} name={node.name} currentId={currentId} />
+      {node.evolvesTo?.length > 0 && (
+        <div className={`flex flex-wrap justify-center gap-3 mt-2 ${node.evolvesTo.length > 4 ? 'max-w-2xl' : ''}`}>
+          {node.evolvesTo.map(child => {
+            const method = formatEvolutionMethod(child.details)
+            const icon = getEvolutionMethodIcon(child.details)
+            return (
+              <div key={child.name} className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center">
+                  <div className="w-px h-2 bg-gray-300 dark:bg-gray-600" />
+                  <span className="text-gray-400 dark:text-gray-500 text-xs leading-none">▼</span>
+                  {method && (
+                    <div className="mt-1 mb-1 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 text-xs text-indigo-700 dark:text-indigo-300 text-center max-w-[130px] leading-snug">
+                      <span className="mr-0.5">{icon}</span>{method}
+                    </div>
+                  )}
+                </div>
+                <EvolutionBranch node={child} currentId={currentId} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// --- Main page ---
 
 export default function PokemonDetail() {
   const { id } = useParams()
@@ -18,7 +84,7 @@ export default function PokemonDetail() {
 
   const [pokemon, setPokemon] = useState(null)
   const [species, setSpecies] = useState(null)
-  const [evolutions, setEvolutions] = useState([])
+  const [evolutionTree, setEvolutionTree] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [shiny, setShiny] = useState(false)
@@ -32,7 +98,7 @@ export default function PokemonDetail() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    setEvolutions([])
+    setEvolutionTree(null)
     setShiny(false)
     setActiveTab('sobre')
 
@@ -46,14 +112,11 @@ export default function PokemonDetail() {
         setPokemon(poke)
         setSpecies(spec)
 
-        // Cadeia de evolução
         if (spec.evolution_chain?.url) {
           const chain = await getEvolutionChain(spec.evolution_chain.url)
-          if (!cancelled) {
-            setEvolutions(parseEvolutionChain(chain.chain))
-          }
+          if (!cancelled) setEvolutionTree(parseEvolutionChain(chain.chain))
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setError('Pokémon não encontrado.')
       } finally {
         if (!cancelled) setLoading(false)
@@ -96,26 +159,27 @@ export default function PokemonDetail() {
   const description = extractDescription(species)
   const genus = extractGenus(species)
   const isFav = isFavorite(pokemon.id)
+  const tips = POKEMON_TIPS[pokemon.id]
 
   const displayName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1).replace(/-/g, ' ')
   const height = (pokemon.height / 10).toFixed(1)
   const weight = (pokemon.weight / 10).toFixed(1)
 
-  const mainMoves = pokemon.moves?.slice(0, 8).map(m => ({
-    name: m.move.name.replace(/-/g, ' '),
-    method: m.version_group_details[0]?.move_learn_method.name,
-  })) || []
-
-  const TABS = ['sobre', 'estatísticas', 'movimentos', 'evoluções', 'fraquezas']
+  const TABS = [
+    { key: 'sobre', label: 'Sobre' },
+    { key: 'estatísticas', label: 'Estatísticas' },
+    { key: 'movimentos', label: 'Movimentos' },
+    { key: 'evoluções', label: 'Evoluções' },
+    { key: 'fraquezas', label: 'Fraquezas' },
+  ]
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {/* Hero com cor do tipo */}
+      {/* Hero */}
       <div
         className="relative overflow-hidden py-10 px-4"
         style={{ background: `linear-gradient(135deg, ${colors.bg}CC, ${colors.dark}EE)` }}
       >
-        {/* Pokébola de fundo */}
         <div className="absolute right-4 top-4 opacity-10 w-64 h-64">
           <div className="w-full h-full rounded-full border-[30px] border-white" />
           <div className="absolute inset-0 flex items-center">
@@ -125,7 +189,6 @@ export default function PokemonDetail() {
         </div>
 
         <div className="max-w-5xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-white/70 text-sm mb-4">
             <Link to="/" className="hover:text-white">Início</Link>
             <span>›</span>
@@ -135,7 +198,6 @@ export default function PokemonDetail() {
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-8">
-            {/* Imagem */}
             <div className="relative flex-shrink-0">
               <div className="w-52 h-52 flex items-center justify-center animate-float">
                 {!imgError ? (
@@ -146,13 +208,9 @@ export default function PokemonDetail() {
                     onError={() => setImgError(true)}
                   />
                 ) : (
-                  <div className="w-40 h-40 bg-white/20 rounded-full flex items-center justify-center text-7xl">
-                    🔴
-                  </div>
+                  <div className="w-40 h-40 bg-white/20 rounded-full flex items-center justify-center text-7xl">🔴</div>
                 )}
               </div>
-
-              {/* Botão shiny */}
               <button
                 onClick={() => setShiny(!shiny)}
                 className={`absolute top-0 right-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
@@ -163,20 +221,14 @@ export default function PokemonDetail() {
               </button>
             </div>
 
-            {/* Info principal */}
             <div className="text-white flex-1 text-center md:text-left">
               <p className="text-white/60 text-lg font-mono mb-1">{formatId(pokemon.id)}</p>
               <h1 className="text-4xl md:text-5xl font-extrabold mb-2">{displayName}</h1>
               {genus && <p className="text-white/80 italic mb-3">{genus}</p>}
-
               <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
-                {types.map(type => (
-                  <TypeBadge key={type} type={type} size="lg" />
-                ))}
+                {types.map(type => <TypeBadge key={type} type={type} size="lg" />)}
               </div>
-
               <p className="text-white/90 text-base max-w-lg mb-4">{description}</p>
-
               <div className="flex flex-wrap gap-4 justify-center md:justify-start text-sm">
                 <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
                   <div className="font-bold text-lg">{height}m</div>
@@ -199,7 +251,6 @@ export default function PokemonDetail() {
               </div>
             </div>
 
-            {/* Controles */}
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => toggleFavorite({ id: pokemon.id, name: pokemon.name, types })}
@@ -237,21 +288,21 @@ export default function PokemonDetail() {
         <div className="max-w-5xl mx-auto px-4 flex overflow-x-auto">
           {TABS.map(tab => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all capitalize ${
-                activeTab === tab
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
+                activeTab === tab.key
                   ? 'border-red-500 text-red-600 dark:text-red-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Conteúdo das tabs */}
+      {/* Tab content */}
       <div className="max-w-5xl mx-auto px-4 py-8 animate-fadeIn">
 
         {/* SOBRE */}
@@ -297,10 +348,8 @@ export default function PokemonDetail() {
                   </div>
                 ))}
               </div>
-
-              {/* Sprite animado */}
               <div className="mt-6">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-3">Sprite</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-3">Sprites</h2>
                 <div className="flex gap-4 items-end">
                   <div className="text-center">
                     <img
@@ -367,41 +416,64 @@ export default function PokemonDetail() {
         {activeTab === 'evoluções' && (
           <div>
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">Cadeia de Evolução</h2>
-            {evolutions.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                {evolutions.map((evo, i) => {
-                  const evoId = Number(evo.id)
-                  return (
-                    <div key={evo.name} className="flex items-center gap-4">
-                      {i > 0 && (
-                        <div className="text-gray-400 dark:text-gray-600 text-2xl">→</div>
-                      )}
-                      <Link
-                        to={`/pokemon/${evoId}`}
-                        className={`flex flex-col items-center p-4 rounded-2xl transition-all hover:scale-105 hover:shadow-lg ${
-                          evoId === pokemon.id
-                            ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-950'
-                            : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <img
-                          src={getPokemonImageUrl(evoId)}
-                          alt={evo.name}
-                          className="w-24 h-24 object-contain drop-shadow"
-                        />
-                        <p className="text-sm font-bold capitalize text-gray-800 dark:text-white mt-2">
-                          {evo.name.replace(/-/g, ' ')}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatId(evoId)}
-                        </p>
-                      </Link>
-                    </div>
-                  )
-                })}
+
+            {evolutionTree ? (
+              <div className="overflow-x-auto pb-4">
+                <div className="flex justify-center min-w-max px-4">
+                  <EvolutionBranch node={evolutionTree} currentId={pokemon.id} />
+                </div>
               </div>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">Este Pokémon não possui evolução.</p>
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Carregando cadeia de evolução...</span>
+              </div>
+            )}
+
+            {/* Legenda de métodos */}
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Legenda</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <span>⬆️ Subir de nível</span>
+                <span>🪨 Usar item</span>
+                <span>🔄 Troca</span>
+                <span>💛 Amizade</span>
+                <span>💝 Afeto</span>
+                <span>🌙 Noite</span>
+                <span>☀️ Dia</span>
+                <span>🎒 Segurar item</span>
+                <span>📖 Saber golpe</span>
+                <span>👥 Time especial</span>
+                <span>🙃 Virar console</span>
+              </div>
+            </div>
+
+            {/* Dicas especiais */}
+            {tips && (
+              <div className="mt-8">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-2">
+                  <span>💡</span> Dicas — como evoluir nos jogos
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Métodos específicos por jogo e geração
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {tips.map((tip, i) => (
+                    <div
+                      key={i}
+                      className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl flex-shrink-0">{tip.icon}</span>
+                        <div>
+                          <p className="font-bold text-gray-800 dark:text-white text-sm">{tip.title}</p>
+                          <p className="text-gray-600 dark:text-gray-300 text-sm mt-1 leading-relaxed">{tip.text}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

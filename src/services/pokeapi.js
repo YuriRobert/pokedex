@@ -81,18 +81,14 @@ export function extractGenus(species) {
 }
 
 export function parseEvolutionChain(chain) {
-  const evolutions = []
-
   function traverse(node) {
-    if (!node) return
-    evolutions.push({
+    if (!node) return null
+    return {
       name: node.species.name,
       id: node.species.url.split('/').filter(Boolean).pop(),
       details: node.evolution_details,
-    })
-    node.evolves_to.forEach(traverse)
+      evolvesTo: node.evolves_to.map(traverse).filter(Boolean),
+    }
   }
-
-  traverse(chain)
-  return evolutions
+  return traverse(chain)
 }
